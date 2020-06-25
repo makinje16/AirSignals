@@ -14,8 +14,11 @@ type Room struct {
 	//the clients connected to this room
 	Clients *list.List
 	//the unique id of the chatRoom
-	ID         string
-	numClients int
+	ID string
+	// waiting messages is used for when there is only a single user
+	// in the room and for example an offer has been made but no user to send it to yet
+	waitingMessages *list.List
+	numClients      int
 }
 
 // NewRoom creates an instance of a new Room with the specified
@@ -25,6 +28,7 @@ func NewRoom(c *Client, id string) *Room {
 	room.ID = id
 	room.numClients = 0
 	room.Clients = list.New()
+	room.waitingMessages = list.New()
 	room.ConnectClient(c)
 	// fmt.Println("Created New Room and connected client " + c.ID)
 	// fmt.Println("Room " + room.ID + " now has " + strconv.Itoa(room.numClients) + " user(s) connected")
@@ -33,16 +37,20 @@ func NewRoom(c *Client, id string) *Room {
 
 // BroadcastMessage relies the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
-func (r *Room) BroadcastMessage(broadcasterID string, message []byte) (bool, error) {
+func (r *Room) BroadcastMessage(broadcasterID string, message []byte) {
+	// If less than 2 users we will add that message to the waitingMessages list
 	if r.numClients < 2 {
-		return false, errors.New("no other client to broadcast message to")
+		newMessage := make(map[string][]byte)
+		newMessage[broadcasterID] = message
+		r.waitingMessages.PushBack(newMessage)
+		return
 	}
+	// numclient >= 2
 	for e := r.Clients.Front(); e != nil; e = e.Next() {
 		if e.Value.(*Client).ID != broadcasterID {
 			e.Value.(*Client).Conn.WriteMessage(websocket.TextMessage, message)
 		}
 	}
-	return true, nil
 }
 
 // ConnectClient takes a client as a parameter and adds that client to the room
@@ -53,6 +61,17 @@ func (r *Room) ConnectClient(c *Client) error {
 	}
 	r.numClients++
 	r.Clients.PushFront(c)
+
+	// if it is 2 at the end of the function it means a user was just added
+	// there may be waitingMessages
+	if r.numClients == 2 {
+		// not actually n^2 because each element only has 1 entry so still O(n)
+		for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
+			for k, v := range e.Value.(map[string][]byte) {
+				r.BroadcastMessage(k, v)
+			}
+		}
+	}
 	// fmt.Println("Added Client")
 	// fmt.Println("Room " + r.ID + " now has " + strconv.Itoa(r.numClients) + " connected clients")
 	// fmt.Println(c)

@@ -47,18 +47,23 @@ func socket(c *gin.Context) {
 		log.Println(err)
 		return
 	}
+
 	chatID := c.Param("chatID")
 	hostID := c.Param("hostID")
 	conn.WriteMessage(websocket.TextMessage, []byte("Hi "+hostID+"! You connected to the server at chatID: "+chatID))
+
 	// Lock the chatRooms map to modify data
 	threadSafeRooms.RWMutex.Lock()
 	_, ok := threadSafeRooms.chatRooms[chatID]
+
+	// Means someone is already in the chatroom
 	if ok {
 		err := threadSafeRooms.chatRooms[chatID].ConnectClient(chatroom.NewClient(hostID, conn))
 		if err != nil {
 			log.Println(err)
 		}
 	} else {
+		// First person to be in the chatroom
 		threadSafeRooms.chatRooms[chatID] = chatroom.NewRoom(chatroom.NewClient(hostID, conn), chatID)
 	}
 	threadSafeRooms.RWMutex.Unlock()
@@ -71,6 +76,7 @@ func socket(c *gin.Context) {
 
 		if messageType == websocket.TextMessage {
 			fmt.Println(p)
+			// conn.WriteMessage(websocket.TextMessage, p)
 			threadSafeRooms.RWMutex.Lock()
 			threadSafeRooms.chatRooms[chatID].BroadcastMessage(hostID, p)
 			threadSafeRooms.RWMutex.Unlock()
