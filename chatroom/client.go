@@ -1,6 +1,8 @@
 package chatroom
 
-import "github.com/gorilla/websocket"
+import (
+	"github.com/gorilla/websocket"
+)
 
 // Client is a representation of a single client that will attach to a room
 type Client struct {
