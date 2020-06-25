@@ -49,7 +49,7 @@ func socket(c *gin.Context) {
 	}
 	chatID := c.Param("chatID")
 	hostID := c.Param("hostID")
-
+	conn.WriteMessage(websocket.TextMessage, []byte("Hi "+hostID+"! You connected to the server at chatID: "+chatID))
 	// Lock the chatRooms map to modify data
 	threadSafeRooms.RWMutex.Lock()
 	_, ok := threadSafeRooms.chatRooms[chatID]
@@ -70,13 +70,10 @@ func socket(c *gin.Context) {
 		}
 
 		if messageType == websocket.TextMessage {
-			fmt.Println(string(p))
-
+			fmt.Println(p)
 			threadSafeRooms.RWMutex.Lock()
 			threadSafeRooms.chatRooms[chatID].BroadcastMessage(hostID, p)
 			threadSafeRooms.RWMutex.Unlock()
-
-			conn.WriteMessage(websocket.TextMessage, []byte("Hello Client!"))
 		}
 
 	}
