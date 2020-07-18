@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/makinje16/AirSignals/chatroom"
@@ -34,11 +36,40 @@ func main() {
 	flag.Parse()
 
 	router := gin.Default()
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET"},
+		AllowHeaders:     []string{"Origin"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowOriginFunc: func(origin string) bool {
+			return true
+		},
+		MaxAge: 12 * time.Hour,
+	}))
 	router.GET("/ws/:chatID/:hostID", socket)
+	router.GET("/getConnectedClients/:chatID", checkClients)
 	if localhostflag {
 		router.Run("localhost:8080")
 	}
 	router.Run("0.0.0.0:8080")
+}
+
+func checkClients(c *gin.Context) {
+	chatID := c.Param("chatID")
+	_, ok := threadSafeRooms.chatRooms[chatID]
+	if !ok {
+		c.JSON(401, gin.H{
+			"type": "message",
+			"body": "Chat Room does not exist",
+		})
+	} else {
+		c.JSON(200, gin.H{
+			"type":       "message",
+			"numClients": threadSafeRooms.chatRooms[chatID].GetNumClients(),
+			"body":       "",
+		})
+	}
 }
 
 func socket(c *gin.Context) {
@@ -50,7 +81,7 @@ func socket(c *gin.Context) {
 
 	chatID := c.Param("chatID")
 	hostID := c.Param("hostID")
-	conn.WriteMessage(websocket.TextMessage, []byte("Hi "+hostID+"! You connected to the server at chatID: "+chatID))
+	conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"message\", \"body\":\"Hi "+hostID+"! You connected to the server at chatID: "+chatID+"\"}"))
 
 	// Lock the chatRooms map to modify data
 	threadSafeRooms.RWMutex.Lock()
@@ -75,7 +106,7 @@ func socket(c *gin.Context) {
 		}
 
 		if messageType == websocket.TextMessage {
-			fmt.Println(p)
+			fmt.Println(string(p))
 			// conn.WriteMessage(websocket.TextMessage, p)
 			threadSafeRooms.RWMutex.Lock()
 			threadSafeRooms.chatRooms[chatID].BroadcastMessage(hostID, p)

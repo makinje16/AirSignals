@@ -53,6 +53,11 @@ func (r *Room) BroadcastMessage(broadcasterID string, message []byte) {
 	}
 }
 
+// GetNumClients returns number of clients connected to room r
+func (r *Room) GetNumClients() int {
+	return r.numClients
+}
+
 // ConnectClient takes a client as a parameter and adds that client to the room
 // from which this method was invoked
 func (r *Room) ConnectClient(c *Client) error {
