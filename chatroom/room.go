@@ -35,6 +35,17 @@ func NewRoom(c *Client, id string) *Room {
 	return room
 }
 
+// DisconnectUser removes the specified user from the room and decriments the user count
+func (r *Room) DisconnectUser(clientID string) error {
+	for c := r.Clients.Front(); c != nil; c = c.Next() {
+		if c.Value.(*Client).ID == clientID {
+			r.Clients.Remove(c)
+			r.numClients--
+		}
+	}
+	return nil
+}
+
 // BroadcastMessage relies the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
 func (r *Room) BroadcastMessage(broadcasterID string, message []byte) {
