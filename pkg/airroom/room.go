@@ -1,4 +1,4 @@
-package chatroom
+package airroom
 
 import (
 	"container/list"
@@ -7,12 +7,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Room struct is the representation of a chat room
+// AirRoom struct is the representation of a chat room
 // in airWaves and keeps track of the number of clients
 // in a room
-type Room struct {
+type AirRoom struct {
 	//the clients connected to this room
-	Clients *list.List
+	AirClients *list.List
 	//the unique id of the chatRoom
 	ID string
 	// waiting messages is used for when there is only a single user
@@ -23,11 +23,11 @@ type Room struct {
 
 // NewRoom creates an instance of a new Room with the specified
 // ID and the first client
-func NewRoom(c *Client, id string) *Room {
-	var room *Room = new(Room)
+func NewRoom(c *AirClient, id string) *AirRoom {
+	var room *AirRoom = new(AirRoom)
 	room.ID = id
 	room.numClients = 0
-	room.Clients = list.New()
+	room.AirClients = list.New()
 	room.waitingMessages = list.New()
 	room.ConnectClient(c)
 	// fmt.Println("Created New Room and connected client " + c.ID)
@@ -36,10 +36,10 @@ func NewRoom(c *Client, id string) *Room {
 }
 
 // DisconnectUser removes the specified user from the room and decriments the user count
-func (r *Room) DisconnectUser(clientID string) error {
-	for c := r.Clients.Front(); c != nil; c = c.Next() {
-		if c.Value.(*Client).ID == clientID {
-			r.Clients.Remove(c)
+func (r *AirRoom) DisconnectUser(clientID string) error {
+	for c := r.AirClients.Front(); c != nil; c = c.Next() {
+		if c.Value.(*AirClient).ID == clientID {
+			r.AirClients.Remove(c)
 			r.numClients--
 		}
 	}
@@ -48,7 +48,7 @@ func (r *Room) DisconnectUser(clientID string) error {
 
 // BroadcastMessage relies the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
-func (r *Room) BroadcastMessage(broadcasterID string, message []byte) {
+func (r *AirRoom) BroadcastMessage(broadcasterID string, message []byte) {
 	// If less than 2 users we will add that message to the waitingMessages list
 	if r.numClients < 2 {
 		newMessage := make(map[string][]byte)
@@ -57,26 +57,26 @@ func (r *Room) BroadcastMessage(broadcasterID string, message []byte) {
 		return
 	}
 	// numclient >= 2
-	for e := r.Clients.Front(); e != nil; e = e.Next() {
-		if e.Value.(*Client).ID != broadcasterID {
-			e.Value.(*Client).Conn.WriteMessage(websocket.TextMessage, message)
+	for e := r.AirClients.Front(); e != nil; e = e.Next() {
+		if e.Value.(*AirClient).ID != broadcasterID {
+			e.Value.(*AirClient).Conn.WriteMessage(websocket.TextMessage, message)
 		}
 	}
 }
 
 // GetNumClients returns number of clients connected to room r
-func (r *Room) GetNumClients() int {
+func (r *AirRoom) GetNumClients() int {
 	return r.numClients
 }
 
 // ConnectClient takes a client as a parameter and adds that client to the room
 // from which this method was invoked
-func (r *Room) ConnectClient(c *Client) error {
+func (r *AirRoom) ConnectClient(c *AirClient) error {
 	if r.numClients >= 2 {
 		return errors.New("Max number of clients already reached")
 	}
 	r.numClients++
-	r.Clients.PushFront(c)
+	r.AirClients.PushFront(c)
 
 	// if it is 2 at the end of the function it means a user was just added
 	// there may be waitingMessages

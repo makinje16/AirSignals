@@ -11,7 +11,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/makinje16/AirSignals/chatroom"
+	"github.com/makinje16/AirSignals/pkg/airroom"
 )
 
 var upgrader = websocket.Upgrader{
@@ -24,8 +24,8 @@ var localhostflag bool
 
 var threadSafeRooms = struct {
 	sync.RWMutex
-	chatRooms map[string]*chatroom.Room
-}{chatRooms: make(map[string]*chatroom.Room)}
+	chatRooms map[string]*airroom.AirRoom
+}{chatRooms: make(map[string]*airroom.AirRoom)}
 
 func checkOrigin(r *http.Request) bool {
 	return true
@@ -99,13 +99,13 @@ func socket(c *gin.Context) {
 
 	// Means someone is already in the chatroom
 	if ok {
-		err := threadSafeRooms.chatRooms[chatID].ConnectClient(chatroom.NewClient(hostID, conn))
+		err := threadSafeRooms.chatRooms[chatID].ConnectClient(airroom.NewClient(hostID, conn))
 		if err != nil {
 			log.Println(err)
 		}
 	} else {
 		// First person to be in the chatroom
-		threadSafeRooms.chatRooms[chatID] = chatroom.NewRoom(chatroom.NewClient(hostID, conn), chatID)
+		threadSafeRooms.chatRooms[chatID] = airroom.NewRoom(airroom.NewClient(hostID, conn), chatID)
 	}
 	threadSafeRooms.RWMutex.Unlock()
 
