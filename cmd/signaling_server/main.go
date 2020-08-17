@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -34,6 +35,14 @@ func checkOrigin(r *http.Request) bool {
 func main() {
 	flag.BoolVar(&localhostflag, "localhost", true, "true if running on localhost false if on public ip")
 	flag.Parse()
+
+	// Setup Logging
+	file, err := os.OpenFile("/var/log/airsignals.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.SetOutput(file)
+	log.Println("AirSignals starting...")
 
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
@@ -91,7 +100,9 @@ func socket(c *gin.Context) {
 		threadSafeRooms.RWMutex.Unlock()
 		return nil
 	})
+
 	conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"message\", \"body\":\"Hi "+hostID+"! You connected to the server at chatID: "+chatID+"\"}"))
+	log.Println(fmt.Sprintf("%s is attempting to connected to the server at chatid: %s", hostID, chatID))
 
 	// Lock the chatRooms map to modify data
 	threadSafeRooms.RWMutex.Lock()

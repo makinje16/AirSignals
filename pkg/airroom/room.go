@@ -3,6 +3,8 @@ package airroom
 import (
 	"container/list"
 	"errors"
+	"fmt"
+	"log"
 
 	"github.com/gorilla/websocket"
 )
@@ -37,6 +39,7 @@ func NewRoom(c *AirClient, id string) *AirRoom {
 
 // DisconnectUser removes the specified user from the room and decriments the user count
 func (r *AirRoom) DisconnectUser(clientID string) error {
+	log.Println(fmt.Sprintf("Removing user %s from chatroom %s", clientID, r.ID))
 	for c := r.AirClients.Front(); c != nil; c = c.Next() {
 		if c.Value.(*AirClient).ID == clientID {
 			r.AirClients.Remove(c)
@@ -73,11 +76,12 @@ func (r *AirRoom) GetNumClients() int {
 // from which this method was invoked
 func (r *AirRoom) ConnectClient(c *AirClient) error {
 	if r.numClients >= 2 {
+		log.Println(fmt.Sprintf("Max number of clients reached in chatroom %s. %s tried to connect", r.ID, c.ID))
 		return errors.New("Max number of clients already reached")
 	}
 	r.numClients++
 	r.AirClients.PushFront(c)
-
+	log.Println(fmt.Sprintf("Successfully added user %s to chatroom %s", c.ID, r.ID))
 	// if it is 2 at the end of the function it means a user was just added
 	// there may be waitingMessages
 	if r.numClients == 2 {
