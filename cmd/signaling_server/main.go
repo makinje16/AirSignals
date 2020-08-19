@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -98,10 +99,10 @@ func socket(c *gin.Context) {
 			threadSafeRooms.chatRooms[chatID].DisconnectUser(hostID)
 		}
 		threadSafeRooms.RWMutex.Unlock()
+		log.Println("Removed user " + hostID + " from room " + chatID)
 		return nil
 	})
 
-	conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"message\", \"body\":\"Hi "+hostID+"! You connected to the server at chatID: "+chatID+"\"}"))
 	log.Println(fmt.Sprintf("%s is attempting to connected to the server at chatid: %s", hostID, chatID))
 
 	// Lock the chatRooms map to modify data
@@ -113,10 +114,14 @@ func socket(c *gin.Context) {
 		err := threadSafeRooms.chatRooms[chatID].ConnectClient(airroom.NewClient(hostID, conn))
 		if err != nil {
 			log.Println(err)
+		} else {
+			log.Println("Connected " + hostID + " to room " + chatID)
+			log.Println("Room " + chatID + " now has " + strconv.Itoa(threadSafeRooms.chatRooms[chatID].GetNumClients()) + " user(s) connected")
 		}
 	} else {
 		// First person to be in the chatroom
 		threadSafeRooms.chatRooms[chatID] = airroom.NewRoom(airroom.NewClient(hostID, conn), chatID)
+		log.Println("Created room " + chatID + " and connected " + hostID)
 	}
 	threadSafeRooms.RWMutex.Unlock()
 

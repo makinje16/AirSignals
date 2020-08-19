@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 )
@@ -19,8 +20,9 @@ type AirRoom struct {
 	ID string
 	// waiting messages is used for when there is only a single user
 	// in the room and for example an offer has been made but no user to send it to yet
-	waitingMessages *list.List
-	numClients      int
+	waitingMessages    *list.List
+	numClients         int
+	isNextClientPolite bool
 }
 
 // NewRoom creates an instance of a new Room with the specified
@@ -32,8 +34,7 @@ func NewRoom(c *AirClient, id string) *AirRoom {
 	room.AirClients = list.New()
 	room.waitingMessages = list.New()
 	room.ConnectClient(c)
-	// fmt.Println("Created New Room and connected client " + c.ID)
-	// fmt.Println("Room " + room.ID + " now has " + strconv.Itoa(room.numClients) + " user(s) connected")
+	room.isNextClientPolite = true
 	return room
 }
 
@@ -81,6 +82,11 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 	}
 	r.numClients++
 	r.AirClients.PushFront(c)
+	c.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"polite\", \"body\":\"Hi "+c.ID+"! You connected to the server at chatID: "+r.ID+", \"polite\":"+strconv.FormatBool(r.isNextClientPolite)+"\"}"))
+	if r.isNextClientPolite || r.numClients == 0 {
+		r.flipPolite()
+	}
+
 	log.Println(fmt.Sprintf("Successfully added user %s to chatroom %s", c.ID, r.ID))
 	// if it is 2 at the end of the function it means a user was just added
 	// there may be waitingMessages
@@ -92,8 +98,9 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 			}
 		}
 	}
-	// fmt.Println("Added Client")
-	// fmt.Println("Room " + r.ID + " now has " + strconv.Itoa(r.numClients) + " connected clients")
-	// fmt.Println(c)
 	return nil
+}
+
+func (r *AirRoom) flipPolite() {
+	r.isNextClientPolite = !r.isNextClientPolite
 }
