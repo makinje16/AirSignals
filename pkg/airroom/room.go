@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,9 +19,9 @@ type AirRoom struct {
 	ID string
 	// waiting messages is used for when there is only a single user
 	// in the room and for example an offer has been made but no user to send it to yet
-	waitingMessages    *list.List
-	numClients         int
-	isNextClientPolite bool
+	waitingMessages *list.List
+	numClients      int
+	acceptingOffers bool
 }
 
 // NewRoom creates an instance of a new Room with the specified
@@ -34,7 +33,7 @@ func NewRoom(c *AirClient, id string) *AirRoom {
 	room.AirClients = list.New()
 	room.waitingMessages = list.New()
 	room.ConnectClient(c)
-	room.isNextClientPolite = true
+	room.acceptingOffers = true
 	return room
 }
 
@@ -47,12 +46,15 @@ func (r *AirRoom) DisconnectUser(clientID string) error {
 			r.numClients--
 		}
 	}
+	if r.numClients == 0 {
+		r.FlushMessageQueue()
+	}
 	return nil
 }
 
-// BroadcastMessage relies the message(message) that was sent from the Client with BroadcasterID
+// BroadcastMessage relays the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
-func (r *AirRoom) BroadcastMessage(broadcasterID string, message []byte) {
+func (r *AirRoom) BroadcastMessage(broadcasterID string, message clientMessageType) {
 	// If less than 2 users we will add that message to the waitingMessages list
 	if r.numClients < 2 {
 		newMessage := make(map[string][]byte)
@@ -63,9 +65,14 @@ func (r *AirRoom) BroadcastMessage(broadcasterID string, message []byte) {
 	// numclient >= 2
 	for e := r.AirClients.Front(); e != nil; e = e.Next() {
 		if e.Value.(*AirClient).ID != broadcasterID {
-			e.Value.(*AirClient).Conn.WriteMessage(websocket.TextMessage, message)
+			e.Value.(*AirClient).SendMessage(message)
 		}
 	}
+}
+
+// FlushMessageQueue empties the current list of waiting messages within the AirRoom struct
+func (r *AirRoom) FlushMessageQueue() {
+	r.waitingMessages.Init()
 }
 
 // GetNumClients returns number of clients connected to room r
@@ -82,10 +89,7 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 	}
 	r.numClients++
 	r.AirClients.PushFront(c)
-	c.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"polite\", \"body\":\"Hi "+c.ID+"! You connected to the server at chatID: "+r.ID+", \"polite\":"+strconv.FormatBool(r.isNextClientPolite)+"\"}"))
-	if r.isNextClientPolite || r.numClients == 0 {
-		r.flipPolite()
-	}
+	c.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"message\", \"body\":\"Hi "+c.ID+"! You connected to the server at chatID: "+r.ID+"\"}"))
 
 	log.Println(fmt.Sprintf("Successfully added user %s to chatroom %s", c.ID, r.ID))
 	// if it is 2 at the end of the function it means a user was just added
@@ -99,8 +103,4 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 		}
 	}
 	return nil
-}
-
-func (r *AirRoom) flipPolite() {
-	r.isNextClientPolite = !r.isNextClientPolite
 }
