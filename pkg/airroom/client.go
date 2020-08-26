@@ -13,10 +13,13 @@ type AirMessageType string
 const (
 	// ClientMESSAGE is an enum type for an AirMessage
 	ClientMESSAGE AirMessageType = "message"
+
 	// ClientOFFER is an enum type for an AirMessage
 	ClientOFFER AirMessageType = "offer"
+
 	// ClientANSWER is an enum type for an AirMessage
 	ClientANSWER AirMessageType = "answer"
+
 	// ClientCANDIDATE is an enum type for an AirMessage
 	ClientCANDIDATE AirMessageType = "candidate"
 )

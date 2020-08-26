@@ -25,6 +25,7 @@ var upgrader = websocket.Upgrader{
 
 var localhostflag bool
 
+// TO-DO: find a way to have the RWMutex on individual AirRooms
 var threadSafeRooms = struct {
 	sync.RWMutex
 	chatRooms map[string]*airroom.AirRoom
@@ -46,6 +47,7 @@ func main() {
 	log.SetOutput(file)
 	log.Println("AirSignals starting...")
 
+	// Setup Gin router and middleware
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -60,6 +62,8 @@ func main() {
 	}))
 	router.GET("/ws/:chatID/:hostID", socket)
 	router.GET("/getConnectedClients/:chatID", checkClients)
+
+	// Run signaling server
 	if localhostflag {
 		router.Run("localhost:8080")
 	}
@@ -133,24 +137,13 @@ func socket(c *gin.Context) {
 		}
 
 		if messageType == websocket.TextMessage {
-			fmt.Println(p)
 			airMessage := airroom.NewEmptyAirMessage()
 			json.Unmarshal(p, airMessage)
-
 			threadSafeRooms.RWMutex.Lock()
-			switch messageType := airMessage.MessageType; messageType {
-			case airroom.ClientOFFER:
-				log.Println("Offer")
-			case airroom.ClientANSWER:
-				log.Println("Answer")
-			case airroom.ClientCANDIDATE:
-				log.Println("Candidate")
-			case airroom.ClientMESSAGE:
-				log.Println("Message")
+			err := threadSafeRooms.chatRooms[chatID].BroadcastMessage(airMessage)
+			if err != nil {
+				log.Println(fmt.Sprintf("Message not broadcasted: %s\n\tmessage: %v", err.Error(), airMessage))
 			}
-
-			// conn.WriteMessage(websocket.TextMessage, p)
-			// threadSafeRooms.chatRooms[chatID].BroadcastMessage(hostID, p)
 			threadSafeRooms.RWMutex.Unlock()
 		}
 

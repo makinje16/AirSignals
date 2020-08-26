@@ -37,47 +37,6 @@ func NewRoom(c *AirClient, id string) *AirRoom {
 	return room
 }
 
-// DisconnectUser removes the specified user from the room and decriments the user count
-func (r *AirRoom) DisconnectUser(clientID string) error {
-	log.Println(fmt.Sprintf("Removing user %s from chatroom %s", clientID, r.ID))
-	for c := r.AirClients.Front(); c != nil; c = c.Next() {
-		if c.Value.(*AirClient).ID == clientID {
-			r.AirClients.Remove(c)
-			r.numClients--
-		}
-	}
-	if r.numClients == 0 {
-		r.FlushMessageQueue()
-	}
-	return nil
-}
-
-// BroadcastMessage relays the message(message) that was sent from the Client with BroadcasterID
-// to all other clients connected to the room (r)
-func (r *AirRoom) BroadcastMessage(broadcasterID string, message *AirMessage) {
-	// If less than 2 users we will add that message to the waitingMessages list
-	if r.numClients < 2 {
-		r.waitingMessages.PushBack(message)
-	}
-
-	// numclient >= 2
-	for e := r.AirClients.Front(); e != nil; e = e.Next() {
-		if e.Value.(*AirClient).ID != broadcasterID {
-			e.Value.(*AirClient).SendMessage(message)
-		}
-	}
-}
-
-// FlushMessageQueue empties the current list of waiting messages within the AirRoom struct
-func (r *AirRoom) FlushMessageQueue() {
-	r.waitingMessages.Init()
-}
-
-// GetNumClients returns number of clients connected to room r
-func (r *AirRoom) GetNumClients() int {
-	return r.numClients
-}
-
 // ConnectClient takes a client as a parameter and adds that client to the room
 // from which this method was invoked
 func (r *AirRoom) ConnectClient(c *AirClient) error {
@@ -96,8 +55,72 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 		// not actually n^2 because each element only has 1 entry so still O(n)
 		for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
 			message := e.Value.(*AirMessage)
-			r.BroadcastMessage(message.senderID, message)
+			r.BroadcastMessage(message)
 		}
 	}
 	return nil
+}
+
+// DisconnectUser removes the specified user from the room and decriments the user count
+func (r *AirRoom) DisconnectUser(clientID string) error {
+	log.Println(fmt.Sprintf("Removing user %s from chatroom %s", clientID, r.ID))
+	for c := r.AirClients.Front(); c != nil; c = c.Next() {
+		if c.Value.(*AirClient).ID == clientID {
+			r.AirClients.Remove(c)
+			r.numClients--
+		}
+	}
+	if r.numClients == 0 {
+		r.FlushMessageQueue()
+		r.acceptOffers()
+	}
+	return nil
+}
+
+// BroadcastMessage relays the message(message) that was sent from the Client with BroadcasterID
+// to all other clients connected to the room (r)
+func (r *AirRoom) BroadcastMessage(message *AirMessage) error {
+	if message.MessageType == ClientOFFER && r.IsAcceptingOffers() {
+		r.dontAcceptOffers()
+	} else if message.MessageType == ClientOFFER && !r.IsAcceptingOffers() {
+		return fmt.Errorf("AirRoom %s is currently not taking offers", r.ID)
+	}
+
+	// If less than 2 users we will add that message to the waitingMessages list
+	if r.numClients < 2 {
+		r.waitingMessages.PushBack(message)
+	}
+
+	// numclient >= 2
+	for e := r.AirClients.Front(); e != nil; e = e.Next() {
+		if e.Value.(*AirClient).ID != message.SenderID {
+			e.Value.(*AirClient).SendMessage(message)
+		}
+	}
+	return nil
+}
+
+// FlushMessageQueue empties the current list of waiting messages within the AirRoom struct
+func (r *AirRoom) FlushMessageQueue() {
+	r.waitingMessages.Init()
+}
+
+// GetNumClients returns number of clients connected to room r
+func (r *AirRoom) GetNumClients() int {
+	return r.numClients
+}
+
+// dontAcceptOffers changes the AirRoom to not accept incoming WebRTC Offers
+func (r *AirRoom) dontAcceptOffers() {
+	r.acceptingOffers = false
+}
+
+// acceptOffers changes the AirRoom to accept incoming WebRTC Offers
+func (r *AirRoom) acceptOffers() {
+	r.acceptingOffers = true
+}
+
+// IsAcceptingOffers returns whether the AirRoom instance is accepting WebRTC Offers
+func (r *AirRoom) IsAcceptingOffers() bool {
+	return r.acceptingOffers
 }
