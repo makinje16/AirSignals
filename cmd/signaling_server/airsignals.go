@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -132,10 +133,24 @@ func socket(c *gin.Context) {
 		}
 
 		if messageType == websocket.TextMessage {
-			fmt.Println(string(p))
-			// conn.WriteMessage(websocket.TextMessage, p)
+			fmt.Println(p)
+			airMessage := airroom.NewEmptyAirMessage()
+			json.Unmarshal(p, airMessage)
+
 			threadSafeRooms.RWMutex.Lock()
-			threadSafeRooms.chatRooms[chatID].BroadcastMessage(hostID, p)
+			switch messageType := airMessage.MessageType; messageType {
+			case airroom.ClientOFFER:
+				log.Println("Offer")
+			case airroom.ClientANSWER:
+				log.Println("Answer")
+			case airroom.ClientCANDIDATE:
+				log.Println("Candidate")
+			case airroom.ClientMESSAGE:
+				log.Println("Message")
+			}
+
+			// conn.WriteMessage(websocket.TextMessage, p)
+			// threadSafeRooms.chatRooms[chatID].BroadcastMessage(hostID, p)
 			threadSafeRooms.RWMutex.Unlock()
 		}
 

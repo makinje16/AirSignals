@@ -32,8 +32,8 @@ func NewRoom(c *AirClient, id string) *AirRoom {
 	room.numClients = 0
 	room.AirClients = list.New()
 	room.waitingMessages = list.New()
-	room.ConnectClient(c)
 	room.acceptingOffers = true
+	room.ConnectClient(c)
 	return room
 }
 
@@ -54,14 +54,12 @@ func (r *AirRoom) DisconnectUser(clientID string) error {
 
 // BroadcastMessage relays the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
-func (r *AirRoom) BroadcastMessage(broadcasterID string, message clientMessageType) {
+func (r *AirRoom) BroadcastMessage(broadcasterID string, message *AirMessage) {
 	// If less than 2 users we will add that message to the waitingMessages list
 	if r.numClients < 2 {
-		newMessage := make(map[string][]byte)
-		newMessage[broadcasterID] = message
-		r.waitingMessages.PushBack(newMessage)
-		return
+		r.waitingMessages.PushBack(message)
 	}
+
 	// numclient >= 2
 	for e := r.AirClients.Front(); e != nil; e = e.Next() {
 		if e.Value.(*AirClient).ID != broadcasterID {
@@ -97,9 +95,8 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 	if r.numClients == 2 {
 		// not actually n^2 because each element only has 1 entry so still O(n)
 		for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
-			for k, v := range e.Value.(map[string][]byte) {
-				r.BroadcastMessage(k, v)
-			}
+			message := e.Value.(*AirMessage)
+			r.BroadcastMessage(message.senderID, message)
 		}
 	}
 	return nil
