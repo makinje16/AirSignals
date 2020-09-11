@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-
-	"github.com/gorilla/websocket"
 )
 
 // AirRoom struct is the representation of a chat room
@@ -44,19 +42,16 @@ func (r *AirRoom) ConnectClient(c *AirClient) error {
 		log.Println(fmt.Sprintf("Max number of clients reached in chatroom %s. %s tried to connect", r.ID, c.ID))
 		return errors.New("Max number of clients already reached")
 	}
-	r.numClients++
 	r.AirClients.PushFront(c)
-	c.Conn.WriteMessage(websocket.TextMessage, []byte("{\"type\":\"message\", \"body\":\"Hi "+c.ID+"! You connected to the server at chatID: "+r.ID+"\"}"))
+	r.numClients++
 
 	log.Println(fmt.Sprintf("Successfully added user %s to chatroom %s", c.ID, r.ID))
+	log.Println(fmt.Sprintf("There are now %d users in the room", r.numClients))
+
 	// if it is 2 at the end of the function it means a user was just added
 	// there may be waitingMessages
-	if r.numClients == 2 {
-		// not actually n^2 because each element only has 1 entry so still O(n)
-		for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
-			message := e.Value.(*AirMessage)
-			r.BroadcastMessage(message)
-		}
+	if r.numClients > 1 {
+		r.PushQueue(c)
 	}
 	return nil
 }
@@ -70,7 +65,8 @@ func (r *AirRoom) DisconnectUser(clientID string) error {
 			r.numClients--
 		}
 	}
-	if r.numClients == 0 {
+	if r.numClients < 2 {
+		log.Println("Flushing Message Queue")
 		r.FlushMessageQueue()
 		r.acceptOffers()
 	}
@@ -80,7 +76,9 @@ func (r *AirRoom) DisconnectUser(clientID string) error {
 // BroadcastMessage relays the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
 func (r *AirRoom) BroadcastMessage(message *AirMessage) error {
+	log.Println("Broadcasting Message")
 	if message.MessageType == ClientOFFER && r.IsAcceptingOffers() {
+		log.Println("Got an offer and changing room to not accept anymore")
 		r.dontAcceptOffers()
 	} else if message.MessageType == ClientOFFER && !r.IsAcceptingOffers() {
 		return fmt.Errorf("AirRoom %s is currently not taking offers", r.ID)
@@ -88,21 +86,40 @@ func (r *AirRoom) BroadcastMessage(message *AirMessage) error {
 
 	// If less than 2 users we will add that message to the waitingMessages list
 	if r.numClients < 2 {
+		log.Println("Adding Message to back of the queue")
 		r.waitingMessages.PushBack(message)
+		return nil
 	}
 
 	// numclient >= 2
 	for e := r.AirClients.Front(); e != nil; e = e.Next() {
 		if e.Value.(*AirClient).ID != message.SenderID {
+			log.Printf("Sending Message from %s to %s", message.SenderID, e.Value.(*AirClient).ID)
 			e.Value.(*AirClient).SendMessage(message)
 		}
 	}
 	return nil
 }
 
+// PushQueue takes all messages in the waitingMessages and sends them to the AirClient
+// over its websocket connection
+func (r *AirRoom) PushQueue(client *AirClient) {
+	log.Println("Pushing Queue")
+	for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
+		message := e.Value.(*AirMessage)
+		client.SendMessage(message)
+		r.waitingMessages.Remove(e)
+	}
+}
+
 // FlushMessageQueue empties the current list of waiting messages within the AirRoom struct
 func (r *AirRoom) FlushMessageQueue() {
 	r.waitingMessages.Init()
+}
+
+// AddToMessageQueue adds an AirMessage to the room (r) waitingMessages list
+func (r *AirRoom) AddToMessageQueue(message *AirMessage) {
+	r.waitingMessages.PushBack(message)
 }
 
 // GetNumClients returns number of clients connected to room r

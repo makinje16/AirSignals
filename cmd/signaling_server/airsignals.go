@@ -25,7 +25,7 @@ var upgrader = websocket.Upgrader{
 
 var localhostflag bool
 
-// TO-DO: find a way to have the RWMutex on individual AirRooms
+// TODO: find a way to have the RWMutex on individual AirRooms
 var threadSafeRooms = struct {
 	sync.RWMutex
 	chatRooms map[string]*airroom.AirRoom
@@ -113,10 +113,10 @@ func socket(c *gin.Context) {
 	// Lock the chatRooms map to modify data
 	threadSafeRooms.RWMutex.Lock()
 	_, ok := threadSafeRooms.chatRooms[chatID]
-
+	newClient := airroom.NewClient(hostID, conn)
 	// Means someone is already in the chatroom
 	if ok {
-		err := threadSafeRooms.chatRooms[chatID].ConnectClient(airroom.NewClient(hostID, conn))
+		err := threadSafeRooms.chatRooms[chatID].ConnectClient(newClient)
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -125,7 +125,7 @@ func socket(c *gin.Context) {
 		}
 	} else {
 		// First person to be in the chatroom
-		threadSafeRooms.chatRooms[chatID] = airroom.NewRoom(airroom.NewClient(hostID, conn), chatID)
+		threadSafeRooms.chatRooms[chatID] = airroom.NewRoom(newClient, chatID)
 		log.Println("Created room " + chatID + " and connected " + hostID)
 	}
 	threadSafeRooms.RWMutex.Unlock()
@@ -134,11 +134,21 @@ func socket(c *gin.Context) {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
 			log.Println(err)
+			log.Println("GOT AN ERROR WHEN READING MESSAGES")
+			conn.Close()
+			break
 		}
 
 		if messageType == websocket.TextMessage {
 			airMessage := airroom.NewEmptyAirMessage()
 			json.Unmarshal(p, airMessage)
+			if airMessage.MessageType == airroom.ClientOFFER {
+				log.Println("Got an offer from " + airMessage.SenderID)
+			} else if airMessage.MessageType == airroom.ClientCANDIDATE {
+				log.Println("Got a candidate from " + airMessage.SenderID)
+			} else {
+				log.Printf("Got a messageType of %s", airMessage.MessageType)
+			}
 			threadSafeRooms.RWMutex.Lock()
 			err := threadSafeRooms.chatRooms[chatID].BroadcastMessage(airMessage)
 			if err != nil {

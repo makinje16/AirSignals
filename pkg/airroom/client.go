@@ -1,9 +1,6 @@
 package airroom
 
 import (
-	"encoding/json"
-	"log"
-
 	"github.com/gorilla/websocket"
 )
 
@@ -34,30 +31,31 @@ type AirClient struct {
 
 // AirMessage is the kind of struct allowed to be sent to a client
 type AirMessage struct {
-	MessageType AirMessageType
-	Body        string
-	SenderID    string
+	MessageType AirMessageType `json:"MessageType"`
+	Body        string         `json:"Body"`
+	SenderID    string         `json:"SenderID"`
 }
 
 // NewAirMessage creates a message that is ok to send to an AirClient
 func NewAirMessage(messageType AirMessageType, body string, senderID string) *AirMessage {
-	return &AirMessage{
-		MessageType: messageType,
-		Body:        body,
-		SenderID:    senderID,
-	}
+	airMessage := new(AirMessage)
+	airMessage.Body = body
+	airMessage.MessageType = messageType
+	airMessage.SenderID = senderID
+	return airMessage
 }
 
 // NewEmptyAirMessage returns an AirMessage with no fields initialized
 //
 // Note: normally used for json Unmarshal
 func NewEmptyAirMessage() *AirMessage {
-	return &AirMessage{}
+	var airMessage *AirMessage = new(AirMessage)
+	return airMessage
 }
 
 // NewClient creates a new client struct on the heap
 func NewClient(id string, conn *websocket.Conn) *AirClient {
-	var client *AirClient = new(AirClient)
+	client := new(AirClient)
 	client.Conn = conn
 	client.ID = id
 	return client
@@ -65,9 +63,5 @@ func NewClient(id string, conn *websocket.Conn) *AirClient {
 
 // SendMessage sends a message to the client, c, over its websocket.Conn Conn
 func (c *AirClient) SendMessage(message *AirMessage) {
-	bytes, err := json.Marshal(message)
-	if err != nil {
-		log.Println(err)
-	}
-	c.Conn.WriteMessage(websocket.TextMessage, bytes)
+	c.Conn.WriteJSON(message)
 }
