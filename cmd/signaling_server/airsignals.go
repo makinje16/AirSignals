@@ -152,7 +152,7 @@ func socket(c *gin.Context) {
 			threadSafeRooms.RWMutex.Lock()
 			err := threadSafeRooms.chatRooms[chatID].BroadcastMessage(airMessage)
 			if err != nil {
-				log.Println(fmt.Sprintf("Message not broadcasted: %s\n\tmessage: %v", err.Error(), airMessage))
+				log.Println(fmt.Sprintf("Message of message type [%s] not broadcasted: %s\n", airMessage.MessageType, err.Error()))
 			}
 			threadSafeRooms.RWMutex.Unlock()
 		}

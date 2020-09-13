@@ -76,7 +76,6 @@ func (r *AirRoom) DisconnectUser(clientID string) error {
 // BroadcastMessage relays the message(message) that was sent from the Client with BroadcasterID
 // to all other clients connected to the room (r)
 func (r *AirRoom) BroadcastMessage(message *AirMessage) error {
-	log.Println("Broadcasting Message")
 	if message.MessageType == ClientOFFER && r.IsAcceptingOffers() {
 		log.Println("Got an offer and changing room to not accept anymore")
 		r.dontAcceptOffers()
@@ -104,7 +103,7 @@ func (r *AirRoom) BroadcastMessage(message *AirMessage) error {
 // PushQueue takes all messages in the waitingMessages and sends them to the AirClient
 // over its websocket connection
 func (r *AirRoom) PushQueue(client *AirClient) {
-	log.Println("Pushing Queue")
+	log.Println(fmt.Sprintf("Pushing Queue to %s", client.ID))
 	for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
 		message := e.Value.(*AirMessage)
 		client.SendMessage(message)
