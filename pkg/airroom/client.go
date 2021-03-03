@@ -19,6 +19,9 @@ const (
 
 	// ClientCANDIDATE is an enum type for an AirMessage
 	ClientCANDIDATE AirMessageType = "candidate"
+
+	// ClientMAGNET is an num type for an AirMessage
+	ClientMAGNET AirMessageType = "magnet"
 )
 
 // AirClient is a representation of a single client that will attach to a room

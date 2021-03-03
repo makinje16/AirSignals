@@ -93,7 +93,7 @@ func (r *AirRoom) BroadcastMessage(message *AirMessage) error {
 	// numclient >= 2
 	for e := r.AirClients.Front(); e != nil; e = e.Next() {
 		if e.Value.(*AirClient).ID != message.SenderID {
-			log.Printf("Sending Message from %s to %s", message.SenderID, e.Value.(*AirClient).ID)
+			log.Println(fmt.Sprintf("Sending Message of type %s from %s to %s", message.MessageType, message.SenderID, e.Value.(*AirClient).ID))
 			e.Value.(*AirClient).SendMessage(message)
 		}
 	}
@@ -106,8 +106,8 @@ func (r *AirRoom) PushQueue(client *AirClient) {
 	log.Println(fmt.Sprintf("Pushing Queue to %s", client.ID))
 	for e := r.waitingMessages.Front(); e != nil; e = e.Next() {
 		message := e.Value.(*AirMessage)
+		log.Println(fmt.Sprintf("Sending Message of type %s from %s to %s", message.MessageType, message.SenderID, client.ID))
 		client.SendMessage(message)
-		r.waitingMessages.Remove(e)
 	}
 }
 
